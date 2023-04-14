@@ -152,10 +152,10 @@ def run_fn(fn_args: tfx.components.FnArgs):
     project_id = fn_args.custom_config['project_id']
     location = fn_args.custom_config['location']
     accuracy = h.history['val_binary_accuracy'][-1]
-    _report_params_and_metrics(num_neurons=hparams.get("num_neurons"),
-                               batch_size=batch_size,
-                               accuracy=accuracy,
-                               experiment_name=experiment_name,
-                               run_name=run_name,
-                               project_id=project_id,
-                               location=location)
+    # _report_params_and_metrics(num_neurons=hparams.get("num_neurons"),
+    #                            batch_size=batch_size,
+    #                            accuracy=accuracy,
+    #                            experiment_name=experiment_name,
+    #                            run_name=run_name,
+    #                            project_id=project_id,
+    #                            location=location)

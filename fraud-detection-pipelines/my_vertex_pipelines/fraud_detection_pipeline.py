@@ -39,16 +39,16 @@ def create_pipeline(pipeline_name: str,
     ## Input
     ## -----
     # Get data from BigQuery
-    example_gen: BigQueryExampleGen = None  # TODO: read from BigQuery using the query
+    example_gen: BigQueryExampleGen = BigQueryExampleGen(query=query)
 
     ## ---------------
     ## Data validation
     ## ---------------
     # Computes statistics over data for visualization and example validation.
-    statistics_gen: StatisticsGen = None  # TODO
+    statistics_gen: StatisticsGen = StatisticsGen(examples=example_gen.outputs['examples'])
 
     # Schema inferred from stats
-    schema_gen: SchemaGen = None  # TODO (use schema inference for simplicity, rather than writing the schema)
+    schema_gen: SchemaGen = SchemaGen(statistics=statistics_gen.outputs['statistics'])
 
     # Q: What if we don't want to infer the schema but check if the data complies with a certain schema?
     # A: We can use the ImportSchemaGen component, from a schema specified in some location (e.g. GCS)
@@ -57,7 +57,10 @@ def create_pipeline(pipeline_name: str,
 
     # Performs anomaly detection based on statistics and data schema.
     # The output contains anomalies info (data drift, skew training-test)
-    example_validator: ExampleValidator = None  # TODO
+    example_validator: ExampleValidator = ExampleValidator(
+        statistics=statistics_gen.outputs['statistics'],
+        schema=schema_gen.outputs['schema']
+    ) 
 
     # See https://www.tensorflow.org/tfx/data_validation/get_started
     # Q: What are the thresholds used to decide if an anomaly should stop the pipeline?
@@ -71,7 +74,11 @@ def create_pipeline(pipeline_name: str,
     ## -------------------
     ## Feature engineering
     ## -------------------
-    transform: Transform = None  # TODO. See feature_engineering_fn.py
+    transform: Transform = Transform(
+        examples=example_gen.outputs['examples'],
+        schema=schema_gen.outputs['schema'],
+        module_file=transform_fn_file
+    )
 
     ## --------
     ## Training
@@ -82,7 +89,13 @@ def create_pipeline(pipeline_name: str,
             'dataset_size': vertex_configs.DATASET_SIZE
         }
 
-        trainer: Trainer = None  # TODO: Use tfx.components.Trainer
+        trainer: Trainer = tfx.components.Trainer(
+            transformed_examples=transform.outputs['transformed_examples'],
+            transform_graph=transform.outputs['transform_graph'],
+            schema=schema_gen.outputs['schema'],
+            module_file=trainer_fn_file,
+            custom_config=custom_config
+        )
     else:  # We are training in Vertex
         vertex_job_spec = vertex_configs.get_vertex_training_config(project_id=project_id,
                                                                     service_account=service_account)
@@ -129,11 +142,11 @@ def create_pipeline(pipeline_name: str,
                         )]),
             })])
 
-    evaluator: Evaluator = tfx.components.Evaluator(
-        examples=transform.outputs['transformed_examples'],
-        model=trainer.outputs['model'],
-        baseline_model=model_resolver.outputs['model'],
-        eval_config=eval_config)
+    # evaluator: Evaluator = tfx.components.Evaluator(
+    #     examples=transform.outputs['transformed_examples'],
+    #     model=trainer.outputs['model'],
+    #     baseline_model=model_resolver.outputs['model'],
+    #     eval_config=eval_config)
 
     ## --------------------------------------------------------------------------
     ## Push to endpoint (and publish in model registry if this is the first time)
@@ -169,10 +182,10 @@ def create_pipeline(pipeline_name: str,
                   schema_gen,
                   example_validator,
                   transform,
-                  trainer,
-                  pusher,
-                  model_resolver,
-                  evaluator]
+                  trainer]
+                #   pusher,
+                #   model_resolver,
+                #   evaluator]
 
     pipeline = tfx.dsl.Pipeline(pipeline_name=pipeline_name,
                                 pipeline_root=pipeline_root,

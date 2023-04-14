@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-PROJECT=<YOUR PROJECT ID>
+PROJECT=neat-responder-375409
 REGION=us-central1
 QUERY="SELECT * FROM data_playground.transactions"
 
@@ -36,7 +36,7 @@ LOCAL_PACKAGE=dist/fraud-detection-pipelines-$VERSION.tar.gz
 
 python setup.py sdist
 
-pip install $LOCAL_PACKAGE
+pip install --user $LOCAL_PACKAGE
 
 python -m  my_vertex_pipelines.fraud_detection_main --project-id=$PROJECT \
   --region=$REGION \
